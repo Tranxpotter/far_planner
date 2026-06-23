@@ -2,8 +2,8 @@ far_planner:
   ros__parameters:
     # Dynamic Planner Default Params
     main_run_freq: 2.5
-    voxel_dim: 0.05  # Unit: meter
-    robot_dim: 0.8   # Unit: meter
+    voxel_dim: 0.1  # Unit: meter   - Voxel dimension (default: 0.15) lower for indoor environment
+    robot_dim: 0.50   # Unit: meter - Robot dimension
     vehicle_height: 0.75  # Unit: meter
     sensor_range: 30.0  # Unit: meter
     terrain_range: 15.0  # Unit: meter
@@ -16,14 +16,14 @@ far_planner:
     is_pub_boundary: false
     is_debug_output: false
     is_attempt_autoswitch: true  # Auto switch to attemptable navigation
-    world_frame: robot_init
+    world_frame: robot_init         # - default: map, world frame of far planner
 
     # Graph Messager
     graph_msger/robot_id: 1  # graph from robot id "0" is extracted from files
-
+ 
     # Map Handler Params
-    map_handler/floor_height: 1.5     # Unit: meter
-    map_handler/cell_length: 1.0     # Unit: meter
+    map_handler/floor_height: 1.5     # Unit: meter - how high is each floor of the building (default 2.5)
+    map_handler/cell_length: 3.0     # Unit: meter - sizing of a coarse bounding grid (default: 5.0) lower for indoor environment
     map_handler/map_grid_max_length: 1000.0   # Unit: meter
     map_handler/map_grad_max_height: 100.0   # Unit: meter
 
@@ -39,14 +39,14 @@ far_planner:
     util/new_points_decay_time: 1.0  # Unit: second
 
     # Dynamic Graph Params
-    graph/connect_votes_size: 10
-    graph/clear_dumper_thred: 4
-    graph/node_finalize_thred: 6
+    graph/connect_votes_size: 5    # - default: 10, number of times a clear line-of-sight visibility link between two nodes must be verified before the connection is finalized and opened for pathfinding
+    graph/clear_dumper_thred: 4    # - default: 4, threshold for removing connection if obstacle is suddenly intersecting
+    graph/node_finalize_thred: 6    # - default: 6, The number of observations needed to completely freeze a navigation node's position
     graph/filter_pool_size: 12
 
     # Corner Detector Params
-    c_detector/resize_ratio: 3.0
-    c_detector/filter_count_value: 3
+    c_detector/resize_ratio: 3.0      # - defualt: 3.0, higher values increases map corner detail
+    c_detector/filter_count_value: 3  # - default: 3, Discards pixels in the terrain image projection that have fewer points than this density threshold
     c_detector/is_save_img: false
     c_detector/img_folder_path: /path
 
