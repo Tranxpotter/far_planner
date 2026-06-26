@@ -5,14 +5,14 @@ far_planner:
     voxel_dim: 0.1  # Unit: meter   - Voxel dimension (default: 0.15) lower for indoor environment
     robot_dim: 0.50   # Unit: meter - Robot dimension
     vehicle_height: 0.75  # Unit: meter
-    sensor_range: 30.0  # Unit: meter
-    terrain_range: 15.0  # Unit: meter
-    local_planner_range: 5.0   # Unit: meter
+    sensor_range: 15.0  # Unit: meter - (default: 30.0)
+    terrain_range: 7.0  # Unit: meter - (default: 15.0)
+    local_planner_range: 3.0   # Unit: meter - (default: 5.0)
     visualize_ratio: 0.75
     is_viewpoint_extend: true
     is_multi_layer: false
     is_opencv_visual: false # Obstacle Image Display
-    is_static_env: true
+    is_static_env: false
     is_pub_boundary: false
     is_debug_output: false
     is_attempt_autoswitch: true  # Auto switch to attemptable navigation
@@ -45,7 +45,7 @@ far_planner:
     graph/filter_pool_size: 12
 
     # Corner Detector Params
-    c_detector/resize_ratio: 3.0      # - defualt: 3.0, higher values increases map corner detail
+    c_detector/resize_ratio: 6.0      # - defualt: 3.0, higher values increases map corner detail
     c_detector/filter_count_value: 3  # - default: 3, Discards pixels in the terrain image projection that have fewer points than this density threshold
     c_detector/is_save_img: false
     c_detector/img_folder_path: /path
