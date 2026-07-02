@@ -72,6 +72,8 @@ struct GraphDecoderParams {
     GraphDecoderParams() = default;
     std::string frame_id;
     float viz_scale_ratio;
+    bool save_map;
+    std::string save_path;
 };
 
 class GraphDecoder {
@@ -83,6 +85,8 @@ public:
     rclcpp::Node::SharedPtr GetNodeHandle() { return nh_; }
 
     void Loop();
+
+    void save_map();
 
 private:
     rclcpp::Node::SharedPtr nh_;

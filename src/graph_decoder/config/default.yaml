@@ -1,3 +1,5 @@
 # Graph Decoder Default Params
-world_frame                             : robot_init
+world_frame                             : map
 visual_scale_ratio                      : 0.5
+save_map                                : true
+save_path                               : map.vgh

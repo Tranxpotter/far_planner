@@ -54,6 +54,14 @@ void GraphDecoder::Init() {
     RCLCPP_INFO(nh_->get_logger(), "Graph Decoder Node Initialized");
 }
 
+void GraphDecoder::save_map() {
+    if (!gd_params_.save_map) return;
+    std_msgs::msg::String::SharedPtr msg = std::make_shared<std_msgs::msg::String>();
+    msg->data = gd_params_.save_path;
+    std::cout << "Saving visibility graph to: " << gd_params_.save_path << std::endl;
+    this->SaveGraphCallBack(msg);
+}
+
 
 void GraphDecoder::GraphCallBack(const visibility_graph_msg::msg::Graph::SharedPtr msg) {
     // Directly use the msg without dereferencing, as it's now a shared pointer
@@ -142,10 +150,14 @@ void GraphDecoder::LoadParmas() {
     // Declare the parameters
     nh_->declare_parameter("world_frame", "map");
     nh_->declare_parameter("visual_scale_ratio", 1.0f);
+    nh_->declare_parameter("save_map", false);
+    nh_->declare_parameter("save_path", "map.vgh");
 
     // Retrieve the parameters
     nh_->get_parameter("world_frame", gd_params_.frame_id);
     nh_->get_parameter("visual_scale_ratio", gd_params_.viz_scale_ratio);
+    nh_->get_parameter("save_map", gd_params_.save_map);
+    nh_->get_parameter("save_path", gd_params_.save_path);
 }
 
 void GraphDecoder::SetMarker(const VizColor& color, 
@@ -307,6 +319,7 @@ void GraphDecoder::EncodeGraph(const NodePtrStack& graphIn, visibility_graph_msg
 }
 
 void GraphDecoder::ReadGraphCallBack(const std_msgs::msg::String::SharedPtr msg) {
+    std::cout << "Reading graph callback called" << std::endl;
     const std::string file_path = msg->data;
     if (file_path == "") return;
     std::ifstream graph_file(file_path);
@@ -515,6 +528,12 @@ int main(int argc, char** argv){
   auto gd_node = std::make_shared<GraphDecoder>();
   
   rclcpp::spin(gd_node->GetNodeHandle());
-  rclcpp::shutdown();
+  if (rclcpp::ok()){
+    rclcpp::shutdown();
+  }
+
+  // Save map
+  gd_node->save_map();
+
   return 0;
 }
