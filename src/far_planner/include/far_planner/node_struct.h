@@ -82,6 +82,7 @@ struct NavNode
     bool is_finalized;
     bool is_navpoint;
     bool is_boundary;
+    bool is_tsp_node;
     int  clear_dumper_count;
     std::deque<int> frontier_votes;
     std::unordered_set<std::size_t> invalid_boundary;

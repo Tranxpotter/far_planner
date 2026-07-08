@@ -535,7 +535,7 @@ public:
     }
 
     static inline void CreateNavNodeFromPoint(const Point3D& point, NavNodePtr& node_ptr, const bool& is_odom, 
-                                              const bool& is_navpoint=false, const bool& is_goal=false, const bool& is_boundary=false) 
+                                              const bool& is_navpoint=false, const bool& is_goal=false, const bool& is_boundary=false, const bool& is_tsp_node=false) 
     {
         node_ptr = std::make_shared<NavNode>();
         node_ptr->pos_filter_vec.clear();
@@ -555,6 +555,7 @@ public:
         node_ptr->is_navpoint = is_navpoint;
         node_ptr->is_boundary = is_boundary;
         node_ptr->is_goal = is_goal;
+        node_ptr->is_tsp_node = is_tsp_node;
         node_ptr->clear_dumper_count = 0;
         node_ptr->frontier_votes.clear();
         node_ptr->invalid_boundary.clear();

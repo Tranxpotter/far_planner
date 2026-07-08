@@ -214,7 +214,7 @@ void DPVisualizer::VizGraph(const NodePtrStack& graph) {
     visualization_msgs::msg::MarkerArray graph_marker_array;
     visualization_msgs::msg::Marker nav_node_marker, unfinal_node_marker, near_node_marker, covered_node_marker, internav_node_marker, frontier_node_marker,
            edge_marker, visual_edge_marker, contour_edge_marker, free_edge_marker, odom_edge_marker, goal_edge_marker, traj_edge_marker,
-           corner_surf_marker, contour_align_marker, corner_helper_marker, boundary_node_marker, boundary_edge_marker;
+           corner_surf_marker, contour_align_marker, corner_helper_marker, boundary_node_marker, boundary_edge_marker, tsp_node_marker;
     nav_node_marker.type       = visualization_msgs::msg::Marker::SPHERE_LIST;
     unfinal_node_marker.type   = visualization_msgs::msg::Marker::SPHERE_LIST;
     near_node_marker.type      = visualization_msgs::msg::Marker::SPHERE_LIST;
@@ -222,6 +222,7 @@ void DPVisualizer::VizGraph(const NodePtrStack& graph) {
     internav_node_marker.type  = visualization_msgs::msg::Marker::SPHERE_LIST;
     boundary_node_marker.type  = visualization_msgs::msg::Marker::SPHERE_LIST;
     frontier_node_marker.type  = visualization_msgs::msg::Marker::SPHERE_LIST;
+    tsp_node_marker.type       = visualization_msgs::msg::Marker::SPHERE_LIST;
     contour_align_marker.type  = visualization_msgs::msg::Marker::LINE_LIST;
     edge_marker.type           = visualization_msgs::msg::Marker::LINE_LIST;
     visual_edge_marker.type    = visualization_msgs::msg::Marker::LINE_LIST;
@@ -239,8 +240,7 @@ void DPVisualizer::VizGraph(const NodePtrStack& graph) {
     this->SetMarker(nh_, VizColor::BLUE,    "freespace_vertex",  0.5f,  0.8f,  covered_node_marker);
     this->SetMarker(nh_, VizColor::YELLOW,  "trajectory_vertex", 0.5f,  0.8f,  internav_node_marker);
     this->SetMarker(nh_, VizColor::GREEN,   "boundary_vertex",   0.5f,  0.8f,  boundary_node_marker);
-    this->SetMarker(nh_, VizColor::ORANGE,  "frontier_vertex",   0.5f,  0.8f,  frontier_node_marker);
-    this->SetMarker(nh_, VizColor::WHITE,   "global_vgraph",     0.1f,  0.2f,  edge_marker);
+    this->SetMarker(nh_, VizColor::ORANGE,  "frontier_vertex",   0.5f,  0.8f,  frontier_node_marker);    this->SetMarker(nh_, VizColor::PURPLE,  "tsp_vertex",        0.8f,  0.9f,  tsp_node_marker);    this->SetMarker(nh_, VizColor::WHITE,   "global_vgraph",     0.1f,  0.2f,  edge_marker);
     this->SetMarker(nh_, VizColor::EMERALD, "freespace_vgraph",  0.1f,  0.25f, free_edge_marker);
     this->SetMarker(nh_, VizColor::EMERALD, "visibility_edge",   0.1f,  0.25f, visual_edge_marker);
     this->SetMarker(nh_, VizColor::RED,     "polygon_edge",      0.15f, 0.25f, contour_edge_marker);
@@ -357,6 +357,9 @@ void DPVisualizer::VizGraph(const NodePtrStack& graph) {
         if (nav_node_ptr->is_boundary) {
             boundary_node_marker.points.push_back(cpoint);
         }
+        if (nav_node_ptr->is_tsp_node) {
+            tsp_node_marker.points.push_back(cpoint);
+        }
         Draw_Edge(nav_node_ptr);
         Draw_Surf_Dir(nav_node_ptr);
         Draw_Contour_Align(nav_node_ptr);
@@ -370,6 +373,7 @@ void DPVisualizer::VizGraph(const NodePtrStack& graph) {
     graph_marker_array.markers.push_back(frontier_node_marker);
     graph_marker_array.markers.push_back(internav_node_marker);
     graph_marker_array.markers.push_back(boundary_node_marker);
+    graph_marker_array.markers.push_back(tsp_node_marker);
     graph_marker_array.markers.push_back(edge_marker);
     graph_marker_array.markers.push_back(visual_edge_marker);
     graph_marker_array.markers.push_back(free_edge_marker);

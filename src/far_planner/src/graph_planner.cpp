@@ -545,7 +545,7 @@ void GraphPlanner::AddTspNode(const uint32_t& id, const Point3D& pos) {
     }
     NavNodePtr node_ptr;
     // Create NavNode from point (same as goal nodes: is_navpoint=true)
-    DynamicGraph::CreateNavNodeFromPoint(pos, node_ptr, false, false, true);
+    DynamicGraph::CreateNavNodeFromPoint(pos, node_ptr, false, false, true, false, true);
     DynamicGraph::AddNodeToGraph(node_ptr);
     
     // Apply Z-height terrain adjustment (same as UpdateGoal)
