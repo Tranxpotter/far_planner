@@ -537,6 +537,12 @@ void GraphPlanner::ClearTspNodes() {
 }
 
 void GraphPlanner::AddTspNode(const uint32_t& id, const Point3D& pos) {
+    // ID 0 is reserved for the robot's current position (odom node)
+    if (id == 0) {
+        RCLCPP_WARN(nh_->get_logger(), "TSP: waypoint with id 0 is reserved for the robot position. Dropping waypoint at (%.2f, %.2f, %.2f).",
+                    pos.x, pos.y, pos.z);
+        return;
+    }
     NavNodePtr node_ptr;
     // Create NavNode from point (same as goal nodes: is_navpoint=true)
     DynamicGraph::CreateNavNodeFromPoint(pos, node_ptr, false, false, true);
@@ -598,7 +604,16 @@ bool GraphPlanner::ComputeTspDistanceMatrix(inspection_planner_interfaces::msg::
         return false;
     }
     
-    // Populate waypoint_ids
+    if (odom_node_ptr_ == NULL) {
+        RCLCPP_ERROR(nh_->get_logger(), "TSP: odom_node_ptr_ is NULL, cannot compute distances from robot position.");
+        return false;
+    }
+    
+    // Reserved ID 0 represents the robot's current position
+    const uint32_t start_id = 0;
+    matrix.start_id = start_id;
+    
+    // Populate waypoint_ids (actual inspection waypoints only, not start_id)
     matrix.waypoint_ids.reserve(tsp_nodes_.size());
     for (const auto& [id, node] : tsp_id_map_) {
         matrix.waypoint_ids.push_back(id);
@@ -606,10 +621,9 @@ bool GraphPlanner::ComputeTspDistanceMatrix(inspection_planner_interfaces::msg::
     
     matrix.entries.clear();
     
-    // For each TSP node (source), run Dijkstra's algorithm
-    for (const auto& source_node : tsp_nodes_) {
+    // Helper lambda: run Dijkstra from a source node and record distances to all TSP targets
+    auto run_dijkstra = [&](NavNodePtr source, uint32_t source_id) {
         // Reset all node states (graph nodes + TSP nodes)
-        // TSP nodes are not in current_graph_, so they must be reset separately
         this->InitNodesStates(current_graph_);
         for (const auto& tsp_node : tsp_nodes_) {
             tsp_node->gscore              = FARUtil::kINF;
@@ -619,15 +633,15 @@ bool GraphPlanner::ComputeTspDistanceMatrix(inspection_planner_interfaces::msg::
             tsp_node->parent              = NULL;
             tsp_node->free_parent         = NULL;
         }
-        source_node->gscore = 0.0;
+        source->gscore = 0.0;
         
         // Dijkstra expansion
         IdxSet open_set;
         std::priority_queue<NavNodePtr, NodePtrStack, nodeptr_gcomp> open_queue;
         IdxSet close_set;
         
-        open_queue.push(source_node);
-        open_set.insert(source_node->id);
+        open_queue.push(source);
+        open_set.insert(source->id);
         
         while (!open_set.empty()) {
             const NavNodePtr current = open_queue.top();
@@ -663,27 +677,28 @@ bool GraphPlanner::ComputeTspDistanceMatrix(inspection_planner_interfaces::msg::
             }
         }
         
-        // Record distances from source to all other TSP nodes
+        // Record distances from source to all TSP nodes
         for (const auto& [target_id, target_node] : tsp_id_map_) {
-            if (target_node == source_node) continue; // Skip self
+            if (target_node == source) continue; // Skip self
             
             if (target_node->gscore < FARUtil::kINF) {
                 inspection_planner_interfaces::msg::TspDistanceEntry entry;
-                // Find source_id from the map
-                uint32_t source_id = 0;
-                for (const auto& [id, node] : tsp_id_map_) {
-                    if (node == source_node) {
-                        source_id = id;
-                        break;
-                    }
-                }
                 entry.source_id = source_id;
                 entry.target_id = target_id;
                 entry.distance = static_cast<double>(target_node->gscore);
                 matrix.entries.push_back(entry);
             }
-            // If gscore >= kINF, the node is unreachable (no entry added)
         }
+    };
+    
+    // 1) Dijkstra from robot position (start_id = 0) to all TSP waypoints
+    run_dijkstra(odom_node_ptr_, start_id);
+    RCLCPP_INFO(nh_->get_logger(), "TSP: computed distances from robot (start_id=%u) to %lu/%lu waypoints.",
+                start_id, matrix.entries.size(), tsp_nodes_.size());
+    
+    // 2) Dijkstra between each pair of TSP waypoints
+    for (const auto& [id, node] : tsp_id_map_) {
+        run_dijkstra(node, id);
     }
     
     return true;
