@@ -608,10 +608,17 @@ bool GraphPlanner::ComputeTspDistanceMatrix(inspection_planner_interfaces::msg::
     
     // For each TSP node (source), run Dijkstra's algorithm
     for (const auto& source_node : tsp_nodes_) {
-        // Reset all node states
+        // Reset all node states (graph nodes + TSP nodes)
+        // TSP nodes are not in current_graph_, so they must be reset separately
         this->InitNodesStates(current_graph_);
-        
-        // Set source node gscore to 0
+        for (const auto& tsp_node : tsp_nodes_) {
+            tsp_node->gscore              = FARUtil::kINF;
+            tsp_node->fgscore             = FARUtil::kINF;
+            tsp_node->is_traversable      = false;
+            tsp_node->is_free_traversable = false;
+            tsp_node->parent              = NULL;
+            tsp_node->free_parent         = NULL;
+        }
         source_node->gscore = 0.0;
         
         // Dijkstra expansion
