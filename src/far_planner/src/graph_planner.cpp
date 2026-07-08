@@ -28,6 +28,12 @@ void GraphPlanner::Init(const rclcpp::Node::SharedPtr nh, const GraphPlannerPara
     Eigen::Vector3d grid_origin(0,0,0);
     Eigen::Vector3d grid_resolution(FARUtil::kLeafSize, FARUtil::kLeafSize, FARUtil::kLeafSize);
     free_terrain_grid_ = std::make_unique<grid_ns::Grid<char>>(grid_size, INIT_BIT, grid_origin, grid_resolution, 3);
+    
+    // TSP waypoints subscription and distance matrix publisher
+    tsp_waypoints_sub_ = nh_->create_subscription<inspection_planner_interfaces::msg::Waypoints>(
+        "/inspection_waypoints", 5, std::bind(&GraphPlanner::TspWaypointsCallback, this, std::placeholders::_1));
+    tsp_distance_pub_ = nh_->create_publisher<inspection_planner_interfaces::msg::TspDistanceMatrix>(
+        "/tsp_distance_matrix", 5);
 }
 
 void GraphPlanner::UpdateGraphTraverability(const NavNodePtr& odom_node_ptr, const NavNodePtr& goal_ptr) 
@@ -485,4 +491,193 @@ void GraphPlanner::UpdateFreeTerrainGrid(const Point3D& center,
             }
         }
     }
+}
+
+/***************************************************************************************/
+/**************************** TSP Distance Computation *********************************/
+/***************************************************************************************/
+
+void GraphPlanner::TspWaypointsCallback(const inspection_planner_interfaces::msg::Waypoints::SharedPtr msg) {
+    if (msg->waypoints.empty()) {
+        RCLCPP_WARN(nh_->get_logger(), "TSP: received empty waypoint list, skipping.");
+        return;
+    }
+    
+    // Clear previous TSP nodes
+    this->ClearTspNodes();
+    
+    // Add each waypoint as a TSP node
+    for (const auto& waypoint : msg->waypoints) {
+        Point3D pos(waypoint.point.x, waypoint.point.y, waypoint.point.z);
+        this->AddTspNode(waypoint.id, pos);
+    }
+    
+    // Compute distance matrix after all nodes are added
+    inspection_planner_interfaces::msg::TspDistanceMatrix matrix;
+    if (this->ComputeTspDistanceMatrix(matrix)) {
+        matrix.header.stamp = nh_->now();
+        matrix.header.frame_id = "map";
+        tsp_distance_pub_->publish(matrix);
+        RCLCPP_INFO(nh_->get_logger(), "TSP: computed distance matrix for %lu waypoints, published %lu entries.",
+                    tsp_nodes_.size(), matrix.entries.size());
+    } else {
+        RCLCPP_WARN(nh_->get_logger(), "TSP: failed to compute distance matrix.");
+    }
+}
+
+void GraphPlanner::ClearTspNodes() {
+    for (const auto& node : tsp_nodes_) {
+        if (node != NULL) {
+            DynamicGraph::ClearNodeConnectInGraph(node);
+            DynamicGraph::ClearGoalNodeInGraph(node);
+        }
+    }
+    tsp_nodes_.clear();
+    tsp_id_map_.clear();
+}
+
+void GraphPlanner::AddTspNode(const uint32_t& id, const Point3D& pos) {
+    NavNodePtr node_ptr;
+    // Create NavNode from point (same as goal nodes: is_navpoint=true)
+    DynamicGraph::CreateNavNodeFromPoint(pos, node_ptr, false, false, true);
+    DynamicGraph::AddNodeToGraph(node_ptr);
+    
+    // Apply Z-height terrain adjustment (same as UpdateGoal)
+    if (!FARUtil::IsMultiLayer) {
+        bool is_terrain_assoc = false;
+        node_ptr->position.z = MapHandler::NearestTerrainHeightofNavPoint(node_ptr->position, is_terrain_assoc) + FARUtil::vehicle_height;
+    }
+    
+    // Store in TSP node containers
+    tsp_nodes_.push_back(node_ptr);
+    tsp_id_map_[id] = node_ptr;
+    
+    // Connect to existing graph nodes
+    this->ConnectTspNodeToGraph(node_ptr);
+    
+    RCLCPP_DEBUG(nh_->get_logger(), "TSP: added node with id %u at (%.2f, %.2f, %.2f)",
+                 id, pos.x, pos.y, pos.z);
+}
+
+void GraphPlanner::ConnectTspNodeToGraph(const NavNodePtr& tsp_node) {
+    if (tsp_node == NULL || current_graph_.empty()) {
+        RCLCPP_WARN(nh_->get_logger(), "TSP: cannot connect node, graph is empty or node is NULL.");
+        return;
+    }
+    
+    // Same pattern as UpdateGoalNavNodeConnects
+    for (const auto& node_ptr : current_graph_) {
+        if (node_ptr == tsp_node) continue;
+        
+        if (this->IsValidConnectToGoal(node_ptr, tsp_node)) {
+            const bool is_directly_connect = node_ptr->is_odom ? true : false;
+            DynamicGraph::RecordPolygonVote(node_ptr, tsp_node, gp_params_.votes_size, is_directly_connect);
+        } else {
+            DynamicGraph::DeletePolygonVote(node_ptr, tsp_node, gp_params_.votes_size);
+        }
+        
+        const auto it = tsp_node->edge_votes.find(node_ptr->id);
+        if (it != tsp_node->edge_votes.end() && FARUtil::IsVoteTrue(it->second, false)) {
+            DynamicGraph::AddPolyEdge(node_ptr, tsp_node);
+            DynamicGraph::AddEdge(node_ptr, tsp_node);
+        } else {
+            DynamicGraph::ErasePolyEdge(node_ptr, tsp_node);
+            DynamicGraph::EraseEdge(node_ptr, tsp_node);
+        }
+    }
+}
+
+bool GraphPlanner::ComputeTspDistanceMatrix(inspection_planner_interfaces::msg::TspDistanceMatrix& matrix) {
+    if (tsp_nodes_.size() < 2) {
+        RCLCPP_WARN(nh_->get_logger(), "TSP: need at least 2 waypoints to compute distance matrix, have %lu.", tsp_nodes_.size());
+        return false;
+    }
+    
+    if (current_graph_.empty()) {
+        RCLCPP_ERROR(nh_->get_logger(), "TSP: graph is empty, cannot compute distances.");
+        return false;
+    }
+    
+    // Populate waypoint_ids
+    matrix.waypoint_ids.reserve(tsp_nodes_.size());
+    for (const auto& [id, node] : tsp_id_map_) {
+        matrix.waypoint_ids.push_back(id);
+    }
+    
+    matrix.entries.clear();
+    
+    // For each TSP node (source), run Dijkstra's algorithm
+    for (const auto& source_node : tsp_nodes_) {
+        // Reset all node states
+        this->InitNodesStates(current_graph_);
+        
+        // Set source node gscore to 0
+        source_node->gscore = 0.0;
+        
+        // Dijkstra expansion
+        IdxSet open_set;
+        std::priority_queue<NavNodePtr, NodePtrStack, nodeptr_gcomp> open_queue;
+        IdxSet close_set;
+        
+        open_queue.push(source_node);
+        open_set.insert(source_node->id);
+        
+        while (!open_set.empty()) {
+            const NavNodePtr current = open_queue.top();
+            open_queue.pop();
+            open_set.erase(current->id);
+            close_set.insert(current->id);
+            
+            for (const auto& neighbor : current->connect_nodes) {
+                if (close_set.count(neighbor->id) || this->IsInvalidBoundary(current, neighbor)) continue;
+                
+                float edist = this->EulerCost(current, neighbor);
+                
+                // Handle multi-layer transitions (same as UpdateGraphTraverability)
+                if (!FARUtil::IsAtSameLayer(neighbor, current)) {
+                    const Point3D diff_p = neighbor->position - current->position;
+                    float factor = std::hypotf(diff_p.x, diff_p.y) / edist;
+                    if (factor > FARUtil::kEpsilon) {
+                        edist /= factor;
+                    } else {
+                        continue;
+                    }
+                }
+                
+                const float temp_gscore = current->gscore + edist;
+                if (temp_gscore < neighbor->gscore) {
+                    neighbor->parent = current;
+                    neighbor->gscore = temp_gscore;
+                    if (!open_set.count(neighbor->id)) {
+                        open_queue.push(neighbor);
+                        open_set.insert(neighbor->id);
+                    }
+                }
+            }
+        }
+        
+        // Record distances from source to all other TSP nodes
+        for (const auto& [target_id, target_node] : tsp_id_map_) {
+            if (target_node == source_node) continue; // Skip self
+            
+            if (target_node->gscore < FARUtil::kINF) {
+                inspection_planner_interfaces::msg::TspDistanceEntry entry;
+                // Find source_id from the map
+                uint32_t source_id = 0;
+                for (const auto& [id, node] : tsp_id_map_) {
+                    if (node == source_node) {
+                        source_id = id;
+                        break;
+                    }
+                }
+                entry.source_id = source_id;
+                entry.target_id = target_id;
+                entry.distance = static_cast<double>(target_node->gscore);
+                matrix.entries.push_back(entry);
+            }
+            // If gscore >= kINF, the node is unreachable (no entry added)
+        }
+    }
+    
+    return true;
 }

@@ -5,6 +5,10 @@
 #include "dynamic_graph.h"
 #include "contour_graph.h"
 
+#include "inspection_planner_interfaces/msg/waypoints.hpp"
+#include "inspection_planner_interfaces/msg/tsp_distance_matrix.hpp"
+#include "inspection_planner_interfaces/msg/tsp_distance_entry.hpp"
+
 enum ReachVote {
     BLOCK = 0,
     REACH = 1
@@ -51,6 +55,12 @@ Point3D last_planning_odom_;
 // local terrain map for freespace adjustment
 Point3D grid_center_ = Point3D(0,0,0);
 std::unique_ptr<grid_ns::Grid<char>> free_terrain_grid_;
+
+// TSP distance computation members
+std::vector<NavNodePtr> tsp_nodes_;
+std::unordered_map<uint32_t, NavNodePtr> tsp_id_map_;
+rclcpp::Subscription<inspection_planner_interfaces::msg::Waypoints>::SharedPtr tsp_waypoints_sub_;
+rclcpp::Publisher<inspection_planner_interfaces::msg::TspDistanceMatrix>::SharedPtr tsp_distance_pub_;
 
 float PriorityScore(const NavNodePtr& node_ptr);
 
@@ -136,6 +146,12 @@ inline void GoalReset() {
     }
     goal_node_ptr_ = NULL;
 }
+
+// TSP-related private methods
+void TspWaypointsCallback(const inspection_planner_interfaces::msg::Waypoints::SharedPtr msg);
+void ClearTspNodes();
+void AddTspNode(const uint32_t& id, const Point3D& pos);
+void ConnectTspNodeToGraph(const NavNodePtr& tsp_node);
 
 public:
 
@@ -244,6 +260,13 @@ Point3D GetOriginNodePos(const bool& is_adjusted_z) const {
                        goal_node_ptr_->position.z);
     }
 }
+
+/**
+ * @brief Compute shortest path distances between all TSP waypoint pairs
+ * @param matrix [out] output distance matrix message
+ * @return true if computation successful, false otherwise
+ */
+bool ComputeTspDistanceMatrix(inspection_planner_interfaces::msg::TspDistanceMatrix& matrix);
 
 };
 

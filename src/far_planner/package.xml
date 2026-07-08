@@ -25,6 +25,7 @@
   <depend>tf2_sensor_msgs</depend>
 
   <depend>visibility_graph_msg</depend>
+  <depend>inspection_planner_interfaces</depend>
 
   <build_depend>pcl_ros</build_depend>
   <exec_depend>pcl_ros</exec_depend>
