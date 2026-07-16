@@ -60,6 +60,7 @@ private:
     rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr planning_time_pub_;
     rclcpp::Publisher<std_msgs::msg::Float32>::SharedPtr traverse_time_pub_;
     rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr reach_goal_pub_;
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr planning_status_pub_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr dynamic_obs_pub_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr surround_free_debug_;
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr surround_obs_debug_;

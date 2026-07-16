@@ -41,6 +41,7 @@ void FARMaster::Init() {
 
   // planning status publisher
   reach_goal_pub_     = nh_->create_publisher<std_msgs::msg::Bool>("/far_reach_goal_status", 5);
+  planning_status_pub_ = nh_->create_publisher<std_msgs::msg::Bool>("/far_planning_status", 5);
 
   // Terminal formatting subscriber
   read_command_sub_   = nh_->create_subscription<std_msgs::msg::String>("/read_file_dir", 1, std::bind(&FARMaster::ReadFileCommand, this, std::placeholders::_1));
@@ -338,6 +339,11 @@ void FARMaster::PlanningCallBack() {
     auto reach_goal_msg = std_msgs::msg::Bool();
     reach_goal_msg.data = is_reach_goal;
     reach_goal_pub_->publish(reach_goal_msg);
+    // publish planning success/failure stat
+    auto planning_status_msg = std_msgs::msg::Bool();
+    reach_goal_msg.data = !is_planning_fails;
+    planning_status_pub_->publish(reach_goal_msg);
+
     auto traverse_timer = std_msgs::msg::Float32();
     traverse_timer.data = FARUtil::Timer.record_time("Overall_executing");
     traverse_time_pub_->publish(traverse_timer);

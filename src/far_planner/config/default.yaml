@@ -35,7 +35,7 @@ far_planner:
     util/terrain_free_Z: 0.2
     util/dyosb_update_thred: 4
     util/new_point_counter: 5
-    util/dynamic_obs_dacay_time: 10.0 # Unit: second
+    util/dynamic_obs_dacay_time: 1.0 # Unit: second
     util/new_points_decay_time: 1.0  # Unit: second
 
     # Dynamic Graph Params
