@@ -514,15 +514,15 @@ void GraphPlanner::TspWaypointsCallback(const inspection_planner_interfaces::msg
     
     // Compute distance matrix after all nodes are added
     inspection_planner_interfaces::msg::TspDistanceMatrix matrix;
+    matrix.header.stamp = nh_->now();
+    matrix.header.frame_id = "map";
     if (this->ComputeTspDistanceMatrix(matrix)) {
-        matrix.header.stamp = nh_->now();
-        matrix.header.frame_id = "map";
-        tsp_distance_pub_->publish(matrix);
         RCLCPP_INFO(nh_->get_logger(), "TSP: computed distance matrix for %lu waypoints, published %lu entries.",
                     tsp_nodes_.size(), matrix.entries.size());
     } else {
         RCLCPP_WARN(nh_->get_logger(), "TSP: failed to compute distance matrix.");
     }
+    tsp_distance_pub_->publish(matrix);
 }
 
 void GraphPlanner::ClearTspNodes() {
@@ -594,8 +594,8 @@ void GraphPlanner::ConnectTspNodeToGraph(const NavNodePtr& tsp_node) {
 }
 
 bool GraphPlanner::ComputeTspDistanceMatrix(inspection_planner_interfaces::msg::TspDistanceMatrix& matrix) {
-    if (tsp_nodes_.size() < 2) {
-        RCLCPP_WARN(nh_->get_logger(), "TSP: need at least 2 waypoints to compute distance matrix, have %lu.", tsp_nodes_.size());
+    if (tsp_nodes_.size() < 1) {
+        RCLCPP_WARN(nh_->get_logger(), "TSP: need at least 1 waypoint to compute distance matrix, have %lu.", tsp_nodes_.size());
         return false;
     }
     
