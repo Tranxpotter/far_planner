@@ -341,8 +341,8 @@ void FARMaster::PlanningCallBack() {
     reach_goal_pub_->publish(reach_goal_msg);
     // publish planning success/failure stat
     auto planning_status_msg = std_msgs::msg::Bool();
-    reach_goal_msg.data = !is_planning_fails;
-    planning_status_pub_->publish(reach_goal_msg);
+    planning_status_msg.data = !is_planning_fails;
+    planning_status_pub_->publish(planning_status_msg);
 
     auto traverse_timer = std_msgs::msg::Float32();
     traverse_timer.data = FARUtil::Timer.record_time("Overall_executing");
