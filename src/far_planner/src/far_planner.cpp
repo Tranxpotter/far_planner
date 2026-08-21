@@ -291,6 +291,8 @@ void FARMaster::PlanningCallBack() {
     graph_planner_.UpdateFreeTerrainGrid(ori_p, goal_obs, goal_free);
     graph_planner_.ReEvaluateGoalPosition(goal_ptr, !master_params_.is_multi_layer);
 
+    graph_planner_.UpdateGraphTraverability(odom_node_ptr_, NULL);
+
     // Adding goal into v-graph
     FARUtil::Timer.start_time("Adding Goal to V-Graph");
     graph_planner_.UpdateGoalNavNodeConnects(goal_ptr); 
